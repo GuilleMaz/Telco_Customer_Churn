@@ -14,7 +14,7 @@ def to_snake_case(name: str) -> str:
     'TotalCharges' -> 'total_charges'
     'Monthly Charges' -> 'monthly_charges'
     """
-    name = name.strip()
+    name = name.strip() # Elimina espacios invisibles al inicio o al final
     name = re.sub(r"(?<!^)(?=[A-Z])", "_", name)   # separa CamelCase
     name = re.sub(r"[^\w]+", "_", name)            # sustituye espacios y símbolos
     name = re.sub(r"_+", "_", name).strip("_")     # limpia guiones bajos repetidos
@@ -22,45 +22,51 @@ def to_snake_case(name: str) -> str:
 
 
 
+
 def resumen_nulos_ceros(df):
     """
-    Genera un Data Frame con el tipo de dato, la cantidad y porcentaje 
-    de valores nulos y la cantidad y porcentaje de ceros para cada varaible
-    
-    Parámetros:
-    df: pandas.DataFrame
-        El dataframe que se desea analizar
-    
-    Output:
-    pandas.io.formats.style.Styler
-        Un objeto DataFrame estilizado con un gradiente de color para
-        nulos y ceros
+    Genera un Data Frame estilizado con el tipo de dato, cantidad y porcentaje 
+    de valores nulos y ceros, compatible con cualquier tipo de dato.
     """
 
-    # Creamos el dataframe descriptivo base
+    # Calculamos nulos 
+    n_missing = df.isna().sum()
 
+    # Calculamos ceros 
+    # Solo intentamos comparar con 0 en columnas numéricas para evitar errores
+    # y excluimos booleanos para que False no cuente como 0.
+    def contar_ceros(col):
+        if pd.api.types.is_numeric_dtype(col) and not pd.api.types.is_bool_dtype(col):
+            return (col == 0).sum()
+        else:
+            return 0
+
+    n_zeros = df.apply(contar_ceros)
+
+    # Creamos el dataframe descriptivo base
     desc_df = pd.DataFrame({
         'variable': df.columns,
         'variable_type': df.dtypes.astype(str).values,
-        'n_missing': df.isna().sum().values,
-        'n_zeros': (df==0).sum().values,
-        'complete_rate': 1-(df.isna().sum().values/len(df))
+        'n_missing': n_missing.values,
+        'n_zeros': n_zeros.values,
+        'complete_rate': 1 - (n_missing.values / len(df))
     })
 
-    # Manipulacuón mediante Methon Chaining (estilo dplyr)
+    # Manipulación mediante Method Chaining
     var_type_missing_df = (
         desc_df
         .assign(
-            n_missing_perc = lambda x: (100*(1-x['complete_rate'])).round(3),
-            n_zeros_perc = lambda x: (100*(x['n_zeros']/len(df))).round(3)
+            n_missing_perc = lambda x: (100 * (1 - x['complete_rate'])).round(3),
+            n_zeros_perc = lambda x: (100 * (x['n_zeros'] / len(df))).round(3)
         )
         .filter(['variable_type', 'variable', 'n_missing', 'n_missing_perc', 'n_zeros', 'n_zeros_perc'])
-        .sort_values(['variable_type', 'n_missing'])
+        .sort_values(['variable_type', 'n_missing'], ascending=[True, False])
     )
 
     return (var_type_missing_df.style
-            .background_gradient(subset = ['n_missing_perc'], cmap = 'Reds')
-            .background_gradient(subset = ['n_zeros_perc'], cmap = 'Blues'))
+            .background_gradient(subset=['n_missing_perc'], cmap='Reds')
+            .background_gradient(subset=['n_zeros_perc'], cmap='Blues'))
+
 
 
 
@@ -87,7 +93,7 @@ def histogram_plot(data, var, ax = None, bins = 50):
     ax.set_ylabel("Densidad")
 
 
-def histogram_var_target_plot(data, var, target_var = "Class", ax = None, bins = 50):
+def histogram_var_target_plot(data, var, target_var = "churn", ax = None, bins = 50):
     import seaborn as sns
     import matplotlib.pyplot as plt
     
