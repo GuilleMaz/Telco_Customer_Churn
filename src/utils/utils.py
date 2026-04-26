@@ -135,3 +135,101 @@ def corrplot(data):
     
     plt.title('Matriz de Correlación de Pearson')
     plt.show()
+
+
+
+
+
+
+def plot_categoricas(df):
+    # 1. Filtrar solo columnas categóricas
+    cat_cols = df.select_dtypes(include=['object', 'category']).columns
+    n_vars = len(cat_cols)
+    
+    if n_vars == 0:
+        print("No se encontraron variables categóricas.")
+        return
+
+    # 2. Configurar la estructura de la cuadrícula (3 columnas)
+    n_cols = 3
+    n_rows = math.ceil(n_vars / n_cols)
+    
+    # Crear la figura y los ejes
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(18, 5 * n_rows))
+    
+    # Aplanamos el array de ejes para iterar fácilmente, 
+    # manejando el caso de que solo haya una fila
+    if n_vars > 1:
+        axes = axes.flatten()
+    else:
+        axes = [axes] # Convertir en lista para consistencia
+
+    sns.set_style("whitegrid")
+
+    # 3. Iterar sobre las columnas y crear los gráficos
+    for i, col in enumerate(cat_cols):
+        # Ordenar por frecuencia
+        order = df[col].value_counts().index
+        
+        # Dibujar el gráfico en el subeje correspondiente
+        ax = sns.countplot(data=df, x=col, order=order, ax=axes[i], color='skyblue')
+        
+        # Estética de cada subgráfico
+        axes[i].set_title(f'Distribución de {col}', fontsize=14, fontweight='bold')
+        axes[i].set_xlabel('') # Limpiamos etiqueta X para no saturar
+        axes[i].set_ylabel('Frecuencia')
+        
+        # Rotar etiquetas si hay muchas categorías
+        if df[col].nunique() > 4:
+            axes[i].tick_params(axis='x', rotation=45)
+            
+        # Añadir el número exacto encima de cada barra
+        for p in ax.patches:
+            height = p.get_height()
+            axes[i].annotate(f'{int(height)}', 
+                            (p.get_x() + p.get_width() / 2., height), 
+                            ha='center', va='bottom', fontsize=10, xytext=(0, 5),
+                            textcoords='offset points')
+
+    # 4. Eliminar subplots vacíos (si n_vars no es múltiplo de 3)
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_cat_vs_target(df, target):
+    # Filtrar categóricas y excluir el target
+    cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    if target in cat_cols: cat_cols.remove(target)
+    
+    n_vars = len(cat_cols)
+    if n_vars == 0: return print("No hay variables categóricas.")
+
+    n_cols = 3
+    n_rows = math.ceil(n_vars / n_cols)
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(18, 6 * n_rows))
+    axes = axes.flatten() if n_vars > 1 else [axes]
+
+    for i, col in enumerate(cat_cols):
+        # Gráfico de barras agrupadas
+        sns.countplot(data=df, x=col, hue=target, ax=axes[i], palette='viridis')
+        
+        axes[i].set_title(f'{col} vs {target}', fontsize=14, fontweight='bold')
+        axes[i].set_xlabel('')
+        axes[i].set_ylabel('Conteo')
+        
+        # Rotar etiquetas si hay muchas
+        if df[col].nunique() > 3:
+            axes[i].tick_params(axis='x', rotation=45)
+        
+        # Mover la leyenda para que no tape las barras
+        axes[i].legend(title=target, loc='upper right')
+
+    for j in range(i + 1, len(axes)): fig.delaxes(axes[j])
+    
+    plt.tight_layout()
+    plt.show()
